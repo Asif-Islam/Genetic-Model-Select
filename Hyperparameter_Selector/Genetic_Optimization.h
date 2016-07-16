@@ -40,7 +40,11 @@ void Crossover(Chromosome c1, Chromosome c2, list<Chromosome> *newPopulation);
 
 void Mutation(Chromosome *chromosome);
 
+bool parseChromosomeValue(Hyperparameter param);
+
 pair<bitset<4>, bitset<4>> bitsetPair(unsigned int v, unsigned int p);
 
 pair<bitset<4>, bitset<4>> bitsetPair(string v, string p);
+
+Chromosome Roulette(float total_fitness, list<Chromosome> population);
 #endif
