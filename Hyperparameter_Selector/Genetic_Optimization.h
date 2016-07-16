@@ -32,19 +32,27 @@ public:
 	float fitness;
 
 	Chromosome();
-	Chromosome(map<string, Hyperparameter> _hyperparameters, bool isCrossover);
+	Chromosome(map<string, Hyperparameter> _hyperparameters);
 	void CalculateFitness();
 };
 
-void Crossover(Chromosome c1, Chromosome c2, list<Chromosome> *newPopulation);
+void Crossover(Chromosome &offspring1, Chromosome &offspring2);
 
-void Mutation(Chromosome *chromosome);
-
-bool parseChromosomeValue(Hyperparameter param);
+void Mutate(Chromosome &chromosome);
 
 pair<bitset<4>, bitset<4>> bitsetPair(unsigned int v, unsigned int p);
 
 pair<bitset<4>, bitset<4>> bitsetPair(string v, string p);
 
 Chromosome Roulette(float total_fitness, list<Chromosome> population);
+
+bool VerifyParamValue(Hyperparameter param);
+
+float parseChromosomeValue(Hyperparameter param);
+
+int parsePow(bitset<4> pow);
+
+bitset<4> random_bitset();
+
+Chromosome Roulette(float total_fitness, Chromosome *population);
 #endif

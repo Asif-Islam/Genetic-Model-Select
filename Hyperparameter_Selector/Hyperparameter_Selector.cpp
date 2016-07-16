@@ -7,7 +7,7 @@
 
 #define MUTATION_RATE		0.001
 #define CROSSOVER_RATE		0.7
-#define POPULATION_SIZE		25
+#define POPULATION_SIZE		24
 #define MAX_GENERATION		100
 #define NUM_PARAMS			3
 #define FITNESS_SOLUTION	0.95
@@ -33,37 +33,40 @@ string paramNames[] = { " Rate", "Dropout Probability", "Regularization Strength
 
 int main()
 {
-	int x = 2;
-	x = x * (3 * 5 == 14);
-	cout << x;
+	for (int r = POPULATION_SIZE; r > 0; r--) {
+		cout << r << endl;
+	}
 	system("PAUSE");
 	srand((int)time(NULL));
 
-	/* Initialization:
+	/* 
+	INITILIZATION
 		map of hyperparameters pairing the param name to a struct containing information about:
 			It's value (As assumed by a chrosome that owns it), it's max value and min value
 	*/
 	
 	map<string, Hyperparameter> hyperparameters;
-	list<Chromosome> population;
+	Chromosome population[POPULATION_SIZE];
+	Chromosome next_population[POPULATION_SIZE];
 	float TotalFitness = 0.0f;
 
-
-
 	Hyperparameter learning_rate(paramNames[0], bitsetPair(0,0), bitsetPair(LR_MAX_VAL,LR_MAX_POW), bitsetPair(LR_MIN_VAL,LR_MIN_POW));
-	Hyperparameter dropout_prob(paramNames[0], bitsetPair(0, 0), bitsetPair(DP_MAX_VAL, DP_MAX_POW), bitsetPair(DP_MIN_VAL, DP_MIN_POW));
-	Hyperparameter reg_strength(paramNames[0], bitsetPair(0, 0), bitsetPair(RS_MAX_VAL, RS_MAX_POW), bitsetPair(RS_MIN_VAL, RS_MIN_POW));
+	Hyperparameter dropout_prob(paramNames[1], bitsetPair(0, 0), bitsetPair(DP_MAX_VAL, DP_MAX_POW), bitsetPair(DP_MIN_VAL, DP_MIN_POW));
+	Hyperparameter reg_strength(paramNames[2], bitsetPair(0, 0), bitsetPair(RS_MAX_VAL, RS_MAX_POW), bitsetPair(RS_MIN_VAL, RS_MIN_POW));
 	Hyperparameter params[] = { learning_rate, dropout_prob, reg_strength };
 	
 	for (int i = 0; i < NUM_PARAMS; i++) {
 		hyperparameters.insert(pair<string, Hyperparameter>(paramNames[i], params[i]));
 	}
 
-	//Generate our population size, sending false in the constructor to indicate random values must be made
+	/*
+	POPULATION GENERATION
+		Loop over through our array and instantiate N chromosomes ; the consutrctor will produce random values 
+		for each parameter between the set max and mins
+	*/
 
 	for (int i = 0; i < POPULATION_SIZE; i++) {
-		Chromosome ch(hyperparameters, false);
-		population.push_front(ch);
+		population[i] = Chromosome(hyperparameters);
 	}
 
 	/*
@@ -71,29 +74,86 @@ int main()
 	# MAIN LOOP #
 	#############
 	*/
+	
+	Chromosome solutionChromosome(hyperparameters);	
+	bool solutionFound = false; 
+	int generation_count = 0;
+	while (generation_count < MAX_GENERATION) {
+		float total_fitness = 0.0f;
 
 
-	while (0) {
-
-		Chromosome solutionChromosome(hyperparameters, false);	//Take these outside the loop lol
-		bool solutionFound = false; //!!!!!!!!!!!!!!!!!!!!!!!!
-
-		//Calculate fitness of each chromosome, calculate the population's total fitness for roulette
+		/*
+		FITNESS CALCULATION
+			Loop over each chromosome, and calculate the fitness value; Summate fitness values to later use
+			for roulette selection of chromosomes during crossover;
+			If a combination of parameters is found that suprasses our requirements, stop building generations
+		*/
 		
-		for (list<Chromosome>::iterator it = population.begin(); it != population.end(); ++it) {
-			it->CalculateFitness();
-			TotalFitness += it->fitness;
-			if (it->fitness >= FITNESS_SOLUTION) {
+		for (int i = 0; i < POPULATION_SIZE; i++) {
+			population[i].CalculateFitness();
+			total_fitness += population[i].fitness;
+			if (population[i].fitness >= FITNESS_SOLUTION) {
 				solutionFound = true;
-				solutionChromosome = *it;
+				solutionChromosome = population[i];
 			}
 		}
 		
 		if (solutionFound) {
+			//Add some messages here
 			break;
 		}
-	
+
+		/*
+		PRODUCING NEXT GENERATION
+			
+		*/
+
+		int j = 0;
+		do {
+			Chromosome offspring1(Roulette(total_fitness, population));
+			Chromosome offspring2(Roulette(total_fitness, population));
+
+			//Crossover and Mutate on both offspring
+			Crossover(offspring1, offspring2);
+			Mutate(offspring1);
+			Mutate(offspring2);
+
+			//Add to new population
+			next_population[j] = offspring1;
+			next_population[++j] = offspring2;
+
+			++j;
+		} while (j < (POPULATION_SIZE / 4) * 3);
+
+		/*
+		ELITISM
+		1/4th of the next generation's population will be taken from the current generation; 
+		A limited reverse-bubble-sort for the 1/4 of the population's size is conducted to take the most fit
+		*/
+		int next_pop_pos = j;
+		for (int i = 0; i < POPULATION_SIZE - j; i++) {
+			for (int r = POPULATION_SIZE; r > 0; r--) {
+				if (population[r].fitness > population[r - 1].fitness) {
+					float temp = population[r].fitness;
+					population[r].fitness = population[r - 1].fitness;
+					population[r - 1].fitness = temp;
+				}
+			}
+			next_population[next_pop_pos] = population[i];
+			++next_pop_pos;
+		}
+		cout << "Best of the generation " << generation_count << " has fitness " << population[0].fitness << endl;
+
+
+		//Copy next_population into population;
+		for (int i = 0; i < POPULATION_SIZE; i++) {
+			population[i] = next_population[i];
+		}
+
+		++generation_count;
 	}
+
+
 
 
 } //END
@@ -131,17 +191,16 @@ Hyperparameter::Hyperparameter(string _name, pair<bitset<4>, bitset<4>> _value, 
 */
 
 
-Chromosome::Chromosome(map<string, Hyperparameter> _hyperparameters, bool isCrossover)
+Chromosome::Chromosome(map<string, Hyperparameter> _hyperparameters)
 {
 	hyperparameters = _hyperparameters;
 
-	if (!(isCrossover)) {
-		for (map<string, Hyperparameter>::iterator it = hyperparameters.begin(); it != hyperparameters.end(); ++it) {
-			do {
-				it->second.value = pair<bitset<CHROM_LEN>, bitset<CHROM_LEN>>(random_bitset(), random_bitset());
-			} while (!parseChromosomeValue(it->second));
-		}
+	for (map<string, Hyperparameter>::iterator it = hyperparameters.begin(); it != hyperparameters.end(); ++it) {
+		do {
+			it->second.value = pair<bitset<CHROM_LEN>, bitset<CHROM_LEN>>(random_bitset(), random_bitset());
+		} while (!VerifyParamValue(it->second));
 	}
+
 
 }
 
@@ -200,7 +259,7 @@ void Crossover(Chromosome &offspring1, Chromosome &offspring2) {
 				offspring1.hyperparameters[paramNames[i]].value = bitsetPair(n1param1, n1param2);
 				offspring2.hyperparameters[paramNames[i]].value = bitsetPair(n2param1, n2param2);
 
-			} while (!parseChromosomeValue(offspring1.hyperparameters[paramNames[i]]) || !parseChromosomeValue(offspring2.hyperparameters[paramNames[i]]));
+			} while (!VerifyParamValue(offspring1.hyperparameters[paramNames[i]]) || !VerifyParamValue(offspring2.hyperparameters[paramNames[i]]));
 
 		}
 	}
@@ -208,12 +267,12 @@ void Crossover(Chromosome &offspring1, Chromosome &offspring2) {
 
 /*
 ##############
-# Mutation  #
+# Mutate  #
 ##############
 */
 
 
-void Mutation(Chromosome &chromosome)
+void Mutate(Chromosome &chromosome)
 {
 
 	for (int i = 0; i < NUM_PARAMS; i++) {
@@ -235,14 +294,14 @@ void Mutation(Chromosome &chromosome)
 			(chromosome.hyperparameters[paramNames[i]].value.first ^= bitset<CHROM_LEN>(flip_operator[0]));
 			(chromosome.hyperparameters[paramNames[i]].value.second ^= bitset<CHROM_LEN>(flip_operator[1]));
 
-		} while (!parseChromosomeValue(chromosome.hyperparameters[paramNames[i]]));
+		} while (!VerifyParamValue(chromosome.hyperparameters[paramNames[i]]));
 	}
 }
 
 /*
-###################################
-# Helper: Bitset Pair Generators  #
-###################################
+##############################
+# Helper: Bitset Generators  #
+##############################
 */
 
 pair<bitset<4>, bitset<4>> bitsetPair(unsigned int v, unsigned int p) {
@@ -254,13 +313,24 @@ pair<bitset<4>, bitset<4>> bitsetPair(string v, string p) {
 }
 
 
+bitset<CHROM_LEN> random_bitset() {
+	string result = "";
+
+	for (int i = 0; i < CHROM_LEN; i++) {
+		result += to_string((int)round(RAND_NUM));
+	}
+	return bitset<CHROM_LEN>(result);
+}
+
+
+
 /*
-###################################
-# Helper: Parse Chromosome Value  #
-###################################
+###############################
+# Helper: Chromosome Parsers  #
+###############################
 */
 
-bool parseChromosomeValue(Hyperparameter param) {
+bool VerifyParamValue(Hyperparameter param) {
 	float max = (float)(param.maximum.first.to_ulong() * pow(10, parsePow(param.maximum.second)));
 	float min = (float)(param.minimum.first.to_ulong() * pow(10, parsePow(param.minimum.second)));
 	float val = (float)(param.value.first.to_ulong() * pow(10, parsePow(param.value.second)));
@@ -268,12 +338,8 @@ bool parseChromosomeValue(Hyperparameter param) {
 	return (val <= max && val >= min);
 }
 
-bool parseChromosomeValue(Hyperparameter param, float &parsedValue) {
-	float max = (float)(param.maximum.first.to_ulong() * pow(10, parsePow(param.maximum.second)));
-	float min = (float)(param.minimum.first.to_ulong() * pow(10, parsePow(param.minimum.second)));
-	parsedValue = (float)(param.value.first.to_ulong() * pow(10, parsePow(param.value.second)));
-
-	return (parsedValue <= max && parsedValue >= min);
+float parseChromosomeValue(Hyperparameter param) {
+	return (float)(param.value.first.to_ulong() * pow(10, parsePow(param.value.second)));
 }
 
 int parsePow(bitset<CHROM_LEN> pow) {
@@ -290,26 +356,24 @@ int parsePow(bitset<CHROM_LEN> pow) {
 
 }
 
-bitset<CHROM_LEN> random_bitset() {
-	string result = "";
+/*
+#######################
+# Population Handlers #
+#######################
+*/
 
-	for (int i = 0; i < CHROM_LEN; i++) {
-		result += to_string((int)round(RAND_NUM));
-	}
-	return bitset<CHROM_LEN>(result);
-}
-
-Chromosome Roulette(float total_fitness, list<Chromosome> population) {
+Chromosome Roulette(float total_fitness, Chromosome *population) {
 
 	float sliced_pos = (float)(RAND_NUM * total_fitness);
 	float fitness_accumulated = 0.0f;
 
-	for (list<Chromosome>::iterator it = population.begin(); it != population.end(); ++it) {
-		fitness_accumulated += it->fitness;
+	for (int i = 0; i < POPULATION_SIZE; i++) {
+		fitness_accumulated += population[i].fitness;
 		if (fitness_accumulated >= sliced_pos) {
-			return *it;
+			return population[i];
 		}
 	}
 
-	return population.front();
+	//Should technically never reach this point
+	return population[0];
 }
