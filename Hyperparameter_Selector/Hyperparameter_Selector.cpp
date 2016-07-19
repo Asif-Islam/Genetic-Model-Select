@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "stdlib.h"
 #include "iostream"
+#include "fstream"
 #include "time.h"
 #include "Genetic_Optimization.h"
 #include "math.h"
@@ -12,19 +13,18 @@
 #define NUM_PARAMS			3
 #define FITNESS_SOLUTION	0.95
 #define CHROM_LEN			4
-#define LR_MAX_VAL			0
-#define LR_MAX_POW			0
-#define LR_MIN_VAL			0
-#define LR_MIN_POW			0
-#define DP_MAX_VAL			0
-#define DP_MAX_POW			0
-#define DP_MIN_VAL			0
-#define DP_MIN_POW			0
-#define RS_MAX_VAL			0
-#define RS_MAX_POW			0
-#define RS_MIN_VAL			0
-#define RS_MIN_POW			0
-
+#define LR_MAX_VAL			1
+#define LR_MAX_POW			-2
+#define LR_MIN_VAL			1
+#define LR_MIN_POW			-5
+#define DP_MAX_VAL			8
+#define DP_MAX_POW			-1
+#define DP_MIN_VAL			1
+#define DP_MIN_POW			-1
+#define RS_MAX_VAL			1
+#define RS_MAX_POW			-2
+#define RS_MIN_VAL			1
+#define RS_MIN_POW			-5
 #define NULL_BITS			"0000"
 #define RAND_NUM			((float)rand()/(RAND_MAX+1))
 
@@ -33,10 +33,6 @@ string paramNames[] = { " Rate", "Dropout Probability", "Regularization Strength
 
 int main()
 {
-	for (int r = POPULATION_SIZE; r > 0; r--) {
-		cout << r << endl;
-	}
-	system("PAUSE");
 	srand((int)time(NULL));
 
 	/* 
@@ -114,15 +110,18 @@ int main()
 			Chromosome offspring2(Roulette(total_fitness, population));
 
 			//Crossover and Mutate on both offspring
-			Crossover(offspring1, offspring2);
-			Mutate(offspring1);
-			Mutate(offspring2);
+			bool success_crossover = Crossover(offspring1, offspring2);
+			if (success_crossover) {
+				Mutate(offspring1);
+				Mutate(offspring2);
 
-			//Add to new population
-			next_population[j] = offspring1;
-			next_population[++j] = offspring2;
+				//Add to new population
+				next_population[j] = offspring1;
+				next_population[++j] = offspring2;
 
-			++j;
+				++j;
+			}
+
 		} while (j < (POPULATION_SIZE / 4) * 3);
 
 		/*
@@ -197,7 +196,7 @@ Chromosome::Chromosome(map<string, Hyperparameter> _hyperparameters)
 
 	for (map<string, Hyperparameter>::iterator it = hyperparameters.begin(); it != hyperparameters.end(); ++it) {
 		do {
-			it->second.value = pair<bitset<CHROM_LEN>, bitset<CHROM_LEN>>(random_bitset(), random_bitset());
+			it->second.value = random_bitset(it->second);
 		} while (!VerifyParamValue(it->second));
 	}
 
@@ -214,8 +213,21 @@ Chromosome::Chromosome() { }
 
 void Chromosome::CalculateFitness()
 {
-	//Interact with python script, perhaps have the python script save to a csv
-	//Then use a module here to load the csv file
+	string command = "python Script.py ";
+	for (map<string, Hyperparameter>::iterator it = hyperparameters.begin(); it != hyperparameters.end(); ++it) {
+		command += to_string(parseChromosomeValue(it->second)) + " ";
+	}
+	system(command.c_str());
+
+	//Read textfile that has our accuracy
+	string line;
+	ifstream myfile("validation_accuracy.txt");
+	if (myfile.is_open()) {
+		while (getline(myfile, line)) {
+			fitness = stof(line);
+		}
+		myfile.close();
+	}
 }	
 
 /*
@@ -224,7 +236,7 @@ void Chromosome::CalculateFitness()
 ##############
 */
 
-void Crossover(Chromosome &offspring1, Chromosome &offspring2) {
+bool Crossover(Chromosome &offspring1, Chromosome &offspring2) {
 
 
 	if (RAND_NUM < CROSSOVER_RATE) {
@@ -233,8 +245,8 @@ void Crossover(Chromosome &offspring1, Chromosome &offspring2) {
 
 			//Convert our bits to strings for easy cross over
 			string p1param1 = offspring1.hyperparameters[paramNames[i]].value.first.to_string();
-			string p1param2 = offspring2.hyperparameters[paramNames[i]].value.second.to_string();
-			string p2param1 = offspring1.hyperparameters[paramNames[i]].value.first.to_string();
+			string p1param2 = offspring1.hyperparameters[paramNames[i]].value.second.to_string();
+			string p2param1 = offspring2.hyperparameters[paramNames[i]].value.first.to_string();
 			string p2param2 = offspring2.hyperparameters[paramNames[i]].value.second.to_string();
 			pair<bitset<CHROM_LEN>, bitset<CHROM_LEN>> value_offspring1 = offspring1.hyperparameters[paramNames[i]].value;
 			pair<bitset<CHROM_LEN>, bitset<CHROM_LEN>> value_offspring2 = offspring2.hyperparameters[paramNames[i]].value;
@@ -262,6 +274,10 @@ void Crossover(Chromosome &offspring1, Chromosome &offspring2) {
 			} while (!VerifyParamValue(offspring1.hyperparameters[paramNames[i]]) || !VerifyParamValue(offspring2.hyperparameters[paramNames[i]]));
 
 		}
+		return true;
+	}
+	else {
+		return false;
 	}
 }
 
@@ -304,15 +320,19 @@ void Mutate(Chromosome &chromosome)
 ##############################
 */
 
-pair<bitset<4>, bitset<4>> bitsetPair(unsigned int v, unsigned int p) {
-	return 	pair<bitset<4>, bitset<4>>(bitset<4>(v), bitset<4>(p));
+pair<bitset<4>, bitset<4>> bitsetPair(unsigned int v, int p) {
+	bitset<CHROM_LEN> power(abs(p));
+	if (p < 0) {
+		(power ^= bitset<CHROM_LEN>("1000"));
+	} 
+	return 	pair<bitset<4>, bitset<4>>(bitset<4>(v), power);
 }
 
 pair<bitset<4>, bitset<4>> bitsetPair(string v, string p) {
 	return 	pair<bitset<4>, bitset<4>> (bitset<4>(v), bitset<4>(p));
 }
 
-
+/*
 bitset<CHROM_LEN> random_bitset() {
 	string result = "";
 
@@ -320,8 +340,36 @@ bitset<CHROM_LEN> random_bitset() {
 		result += to_string((int)round(RAND_NUM));
 	}
 	return bitset<CHROM_LEN>(result);
-}
+}*/
 
+pair<bitset<CHROM_LEN>, bitset<CHROM_LEN>> random_bitset(Hyperparameter param) {
+	//Generate val-bitset first
+	string val = "";
+	for (int i = 0; i < CHROM_LEN; i++) {
+		val += to_string((int)round(RAND_NUM));
+	}
+	bitset<CHROM_LEN> random_value(val);
+
+	string pow = "";
+	if (param.maximum.second.to_string() == param.minimum.second.to_string()) {
+		return pair<bitset<CHROM_LEN>, bitset<CHROM_LEN>>(bitset<CHROM_LEN>(val), param.maximum.second);
+	}
+	else {
+		int looplength;
+		if (param.maximum.second.to_ulong() > 7 && param.minimum.second.to_ulong() > 7) {
+			pow += '1';
+			looplength = 3;
+		}
+		else {
+			looplength = 4;
+		}
+
+		for (int i = 0; i < looplength; i++) {
+			pow += to_string((int)round(RAND_NUM));
+		}
+	}
+	return pair<bitset<CHROM_LEN>, bitset<CHROM_LEN>>(bitset<CHROM_LEN>(val), bitset<CHROM_LEN>(pow));
+}
 
 
 /*
@@ -343,6 +391,8 @@ float parseChromosomeValue(Hyperparameter param) {
 }
 
 int parsePow(bitset<CHROM_LEN> pow) {
+	
+	
 	string SIGN_CHECK = "1000";
 
 	bitset<CHROM_LEN> pow_abs_bitset('0' + pow.to_string().substr(1, CHROM_LEN));
@@ -353,7 +403,7 @@ int parsePow(bitset<CHROM_LEN> pow) {
 	else {
 		return (int)pow_abs_bitset.to_ulong();
 	}
-
+	
 }
 
 /*
@@ -370,6 +420,7 @@ Chromosome Roulette(float total_fitness, Chromosome *population) {
 	for (int i = 0; i < POPULATION_SIZE; i++) {
 		fitness_accumulated += population[i].fitness;
 		if (fitness_accumulated >= sliced_pos) {
+			cout << endl << i << endl;
 			return population[i];
 		}
 	}

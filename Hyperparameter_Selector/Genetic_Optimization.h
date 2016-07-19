@@ -36,11 +36,11 @@ public:
 	void CalculateFitness();
 };
 
-void Crossover(Chromosome &offspring1, Chromosome &offspring2);
+bool Crossover(Chromosome &offspring1, Chromosome &offspring2);
 
 void Mutate(Chromosome &chromosome);
 
-pair<bitset<4>, bitset<4>> bitsetPair(unsigned int v, unsigned int p);
+pair<bitset<4>, bitset<4>> bitsetPair(unsigned int v, int p);
 
 pair<bitset<4>, bitset<4>> bitsetPair(string v, string p);
 
@@ -52,7 +52,7 @@ float parseChromosomeValue(Hyperparameter param);
 
 int parsePow(bitset<4> pow);
 
-bitset<4> random_bitset();
+pair<bitset<4>, bitset<4>> random_bitset(Hyperparameter param);
 
 Chromosome Roulette(float total_fitness, Chromosome *population);
 #endif
