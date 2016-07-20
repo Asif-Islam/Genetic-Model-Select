@@ -12,7 +12,6 @@
 #define MAX_GENERATION		100
 #define NUM_PARAMS			3
 #define FITNESS_SOLUTION	0.95
-#define CHROM_LEN			4
 #define LR_MAX_VAL			1
 #define LR_MAX_POW			-2
 #define LR_MIN_VAL			1
@@ -29,7 +28,7 @@
 #define RAND_NUM			((float)rand()/(RAND_MAX+1))
 
 
-string paramNames[] = { " Rate", "Dropout Probability", "Regularization Strength" };
+string paramNames[] = { "Learning Rate", "Dropout Probability", "Regularization Strength" };
 
 int main()
 {
@@ -70,7 +69,8 @@ int main()
 	# MAIN LOOP #
 	#############
 	*/
-	
+	Chromosome globalBest(hyperparameters);
+	int globalBestGen = 0;
 	Chromosome solutionChromosome(hyperparameters);	
 	bool solutionFound = false; 
 	int generation_count = 0;
@@ -93,9 +93,12 @@ int main()
 				solutionChromosome = population[i];
 			}
 		}
+
 		
 		if (solutionFound) {
-			//Add some messages here
+			solutionChromosome.print();
+			cout << "Pausing Program..." << endl;
+			system("PAUSE");
 			break;
 		}
 
@@ -103,7 +106,7 @@ int main()
 		PRODUCING NEXT GENERATION
 			
 		*/
-
+		cout << "Forming next generation..." << endl;
 		int j = 0;
 		do {
 			Chromosome offspring1(Roulette(total_fitness, population));
@@ -141,13 +144,22 @@ int main()
 			next_population[next_pop_pos] = population[i];
 			++next_pop_pos;
 		}
-		cout << "Best of the generation " << generation_count << " has fitness " << population[0].fitness << endl;
+		cout << "BEST OF THE GENERATION " << generation_count << endl;
+		population[0].print();
 
+		if (population[0].fitness > globalBest.fitness) {
+			globalBest = population[0];
+			globalBestGen = generation_count;
+		}
 
 		//Copy next_population into population;
 		for (int i = 0; i < POPULATION_SIZE; i++) {
 			population[i] = next_population[i];
 		}
+
+
+		cout << "BEST THUS FAR: GENERATION " << globalBestGen << endl;
+		globalBest.print();
 
 		++generation_count;
 	}
@@ -175,7 +187,7 @@ int main()
 
 Hyperparameter::Hyperparameter() {}
 
-Hyperparameter::Hyperparameter(string _name, pair<bitset<4>, bitset<4>> _value, pair<bitset<4>, bitset<4>> _maximum, pair<bitset<4>, bitset<4>> _minimum)
+Hyperparameter::Hyperparameter(string _name, pair<bitset<CHROM_LEN>, bitset<CHROM_LEN>> _value, pair<bitset<CHROM_LEN>, bitset<CHROM_LEN>> _maximum, pair<bitset<CHROM_LEN>, bitset<CHROM_LEN>> _minimum)
 {
 	name = _name;
 	value = _value;
@@ -193,7 +205,7 @@ Hyperparameter::Hyperparameter(string _name, pair<bitset<4>, bitset<4>> _value, 
 Chromosome::Chromosome(map<string, Hyperparameter> _hyperparameters)
 {
 	hyperparameters = _hyperparameters;
-
+	fitness = 0.0f;
 	for (map<string, Hyperparameter>::iterator it = hyperparameters.begin(); it != hyperparameters.end(); ++it) {
 		do {
 			it->second.value = random_bitset(it->second);
@@ -213,7 +225,7 @@ Chromosome::Chromosome() { }
 
 void Chromosome::CalculateFitness()
 {
-	string command = "python Script.py ";
+	string command = "python __main__.py ";
 	for (map<string, Hyperparameter>::iterator it = hyperparameters.begin(); it != hyperparameters.end(); ++it) {
 		command += to_string(parseChromosomeValue(it->second)) + " ";
 	}
@@ -320,16 +332,16 @@ void Mutate(Chromosome &chromosome)
 ##############################
 */
 
-pair<bitset<4>, bitset<4>> bitsetPair(unsigned int v, int p) {
+pair<bitset<CHROM_LEN>, bitset<CHROM_LEN>> bitsetPair(unsigned int v, int p) {
 	bitset<CHROM_LEN> power(abs(p));
 	if (p < 0) {
 		(power ^= bitset<CHROM_LEN>("1000"));
 	} 
-	return 	pair<bitset<4>, bitset<4>>(bitset<4>(v), power);
+	return 	pair<bitset<CHROM_LEN>, bitset<CHROM_LEN>>(bitset<CHROM_LEN>(v), power);
 }
 
-pair<bitset<4>, bitset<4>> bitsetPair(string v, string p) {
-	return 	pair<bitset<4>, bitset<4>> (bitset<4>(v), bitset<4>(p));
+pair<bitset<CHROM_LEN>, bitset<CHROM_LEN>> bitsetPair(string v, string p) {
+	return 	pair<bitset<CHROM_LEN>, bitset<CHROM_LEN>> (bitset<CHROM_LEN>(v), bitset<CHROM_LEN>(p));
 }
 
 /*
@@ -427,4 +439,16 @@ Chromosome Roulette(float total_fitness, Chromosome *population) {
 
 	//Should technically never reach this point
 	return population[0];
+}
+
+/*
+#
+*/
+void Chromosome::print() {
+	for (int i = 0; i < NUM_PARAMS; i++) {
+		cout << paramNames[i] << " ";
+		cout << (float)(hyperparameters[paramNames[i]].value.first.to_ulong() * pow(10, parsePow(hyperparameters[paramNames[i]].value.second))) << " ";
+	}
+	cout << "Fitness " << fitness << endl;
+
 }

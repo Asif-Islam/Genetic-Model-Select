@@ -9,6 +9,7 @@ using namespace std;
 #ifndef GENETiC_OPTIMIZATION
 #define GENETiC_OPTIMIZATION
 
+#define CHROM_LEN		4
 
 /*
 	Each tuple <A,B> where A is the nuermical value ignoring the powers in standard notation
@@ -17,11 +18,11 @@ using namespace std;
 
 struct Hyperparameter {
 	Hyperparameter();
-	Hyperparameter(string name, pair<bitset<4>, bitset<4>> value, pair<bitset<4>, bitset<4>> maximum, pair<bitset<4>, bitset<4>> minimum);
+	Hyperparameter(string name, pair<bitset<CHROM_LEN>, bitset<CHROM_LEN>> value, pair<bitset<CHROM_LEN>, bitset<CHROM_LEN>> maximum, pair<bitset<CHROM_LEN>, bitset<CHROM_LEN>> minimum);
 	string name;
-	pair<bitset<4>, bitset<4>> value;
-	pair<bitset<4>, bitset<4>> maximum;
-	pair<bitset<4>, bitset<4>> minimum;
+	pair<bitset<CHROM_LEN>, bitset<CHROM_LEN>> value;
+	pair<bitset<CHROM_LEN>, bitset<CHROM_LEN>> maximum;
+	pair<bitset<CHROM_LEN>, bitset<CHROM_LEN>> minimum;
 };
 
 
@@ -34,25 +35,24 @@ public:
 	Chromosome();
 	Chromosome(map<string, Hyperparameter> _hyperparameters);
 	void CalculateFitness();
+	void print();
 };
 
 bool Crossover(Chromosome &offspring1, Chromosome &offspring2);
 
 void Mutate(Chromosome &chromosome);
 
-pair<bitset<4>, bitset<4>> bitsetPair(unsigned int v, int p);
+pair<bitset<CHROM_LEN>, bitset<CHROM_LEN>> bitsetPair(unsigned int v, int p);
 
-pair<bitset<4>, bitset<4>> bitsetPair(string v, string p);
-
-Chromosome Roulette(float total_fitness, list<Chromosome> population);
+pair<bitset<CHROM_LEN>, bitset<CHROM_LEN>> bitsetPair(string v, string p);
 
 bool VerifyParamValue(Hyperparameter param);
 
 float parseChromosomeValue(Hyperparameter param);
 
-int parsePow(bitset<4> pow);
+int parsePow(bitset<CHROM_LEN> pow);
 
-pair<bitset<4>, bitset<4>> random_bitset(Hyperparameter param);
+pair<bitset<CHROM_LEN>, bitset<CHROM_LEN>> random_bitset(Hyperparameter param);
 
 Chromosome Roulette(float total_fitness, Chromosome *population);
 #endif
