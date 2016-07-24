@@ -9,7 +9,13 @@ using namespace std;
 #ifndef GENETiC_OPTIMIZATION
 #define GENETiC_OPTIMIZATION
 
-#define CHROM_LEN		4
+#define CHROM_LEN			8
+#define MUTATION_RATE		0.001
+#define CROSSOVER_RATE		0.7
+#define POPULATION_SIZE		24
+#define MAX_GENERATION		100
+#define RAND_NUM			((float)rand()/(RAND_MAX+1))
+#define FITNESS_SOLUTION	0.95
 
 /*
 	Each tuple <A,B> where A is the nuermical value ignoring the powers in standard notation
@@ -34,7 +40,7 @@ public:
 
 	Chromosome();
 	Chromosome(map<string, Hyperparameter> _hyperparameters);
-	void CalculateFitness();
+	void CalculateFitness(string thread_title);
 	void print();
 };
 
@@ -51,6 +57,8 @@ bool VerifyParamValue(Hyperparameter param);
 float parseChromosomeValue(Hyperparameter param);
 
 int parsePow(bitset<CHROM_LEN> pow);
+
+void ThreadedCalcFitness(Chromosome *subpopulation, string thread_title);
 
 pair<bitset<CHROM_LEN>, bitset<CHROM_LEN>> random_bitset(Hyperparameter param);
 
